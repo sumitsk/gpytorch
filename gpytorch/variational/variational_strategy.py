@@ -121,7 +121,7 @@ class VariationalStrategy(Module):
 
             # Compute chol cache, if necessary
             if not self.training and not self.has_computed_root and beta_features.fast_pred_var.on():
-                self.prior_root_inv = induc_induc_covar.root_inv_decomposition()
+                self.prior_root_inv = induc_induc_covar.root_inv_decomposition().root
 
                 chol_variational_output = variational_dist.lazy_covariance_matrix.root.evaluate()
                 self.variational_root = induc_induc_covar.inv_matmul(chol_variational_output)
