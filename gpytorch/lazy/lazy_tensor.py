@@ -1259,9 +1259,12 @@ class LazyTensor(object):
         used.
         """
         from .zero_lazy_tensor import ZeroLazyTensor
+        from .diag_lazy_tensor import DiagLazyTensor
 
         if isinstance(other, ZeroLazyTensor):
             return other
+        elif isinstance(other, DiagLazyTensor):
+            return other * self
 
         return self.mul(other)
 
