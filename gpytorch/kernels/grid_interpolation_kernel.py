@@ -64,7 +64,7 @@ class GridInterpolationKernel(GridKernel):
         http://proceedings.mlr.press/v37/wilson15.pdf
     """
 
-    def __init__(self, base_kernel, grid_size, num_dims=None, grid_bounds=None, active_dims=None):
+    def __init__(self, base_kernel, grid_size, num_dims=None, grid_bounds=None, active_dims=None, grid=None):
         has_initialized_grid = 0
         grid_is_dynamic = True
 
@@ -91,8 +91,9 @@ class GridInterpolationKernel(GridKernel):
         self.num_dims = num_dims
         self.grid_size = grid_size
         self.grid_bounds = grid_bounds
-        grid = self._create_grid()
-
+        # grid = self._create_grid()
+        if grid is None:
+            grid = self._create_grid()
         super(GridInterpolationKernel, self).__init__(
             base_kernel=base_kernel, grid=grid, interpolation_mode=True, active_dims=active_dims
         )
@@ -177,7 +178,7 @@ class GridInterpolationKernel(GridKernel):
             right_interp_values = left_interp_values
         else:
             right_interp_indices, right_interp_values = self._compute_grid(x2, batch_dims)
-
+        
         res = InterpolatedLazyTensor(
             base_lazy_tsr,
             left_interp_indices.detach(),
@@ -185,5 +186,4 @@ class GridInterpolationKernel(GridKernel):
             right_interp_indices.detach(),
             right_interp_values,
         )
-
         return res

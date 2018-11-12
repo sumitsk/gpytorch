@@ -77,6 +77,7 @@ class SpectralMixtureKernel(Kernel):
         log_mixture_scales_prior=None,
         log_mixture_means_prior=None,
         log_mixture_weights_prior=None,
+        shared_mean=False
     ):
         if num_mixtures is None:
             raise RuntimeError("num_mixtures is a required argument")
@@ -93,14 +94,22 @@ class SpectralMixtureKernel(Kernel):
         self.batch_size = batch_size
         self.ard_num_dims = ard_num_dims
         self.eps = eps
+        self.shared_mean = shared_mean
 
         self.register_parameter(
             name="log_mixture_weights", parameter=torch.nn.Parameter(torch.zeros(self.batch_size, self.num_mixtures))
         )
-        self.register_parameter(
-            name="log_mixture_means",
-            parameter=torch.nn.Parameter(torch.zeros(self.batch_size, self.num_mixtures, 1, self.ard_num_dims)),
-        )
+        if not self.shared_mean:
+            self.register_parameter(
+                name="log_mixture_means",
+                parameter=torch.nn.Parameter(torch.zeros(self.batch_size, self.num_mixtures, 1, self.ard_num_dims)),
+            )
+        else:
+            self.register_parameter(
+                name="log_mixture_means",
+                parameter=torch.nn.Parameter(torch.zeros(self.batch_size, self.num_mixtures, 1, 1)),
+            )
+        
         self.register_parameter(
             name="log_mixture_scales",
             parameter=torch.nn.Parameter(torch.zeros(self.batch_size, self.num_mixtures, 1, self.ard_num_dims)),
@@ -112,7 +121,10 @@ class SpectralMixtureKernel(Kernel):
 
     @property
     def mixture_means(self):
-        return self.log_mixture_means.exp().clamp(self.eps, 1e5)
+        if not self.shared_mean:
+            return self.log_mixture_means.exp().clamp(self.eps, 1e5)
+        else:
+            return self.log_mixture_means.expand(self.batch_size,self.num_mixtures,1,self.ard_num_dims).exp().clamp(self.eps, 1e5)
 
     @property
     def mixture_weights(self):
@@ -136,7 +148,11 @@ class SpectralMixtureKernel(Kernel):
         # Inverse of lengthscales should be drawn from truncated Gaussian | N(0, max_dist^2) |
         self.log_mixture_scales.data.normal_().mul_(max_dist).abs_().pow_(-1).log_()
         # Draw means from Unif(0, 0.5 / minimum distance between two points)
-        self.log_mixture_means.data.uniform_().mul_(0.5).div_(min_dist).log_()
+        if not self.shared_mean:
+            self.log_mixture_means.data.uniform_().mul_(0.5).div_(min_dist).log_()
+        else:
+            self.log_mixture_means.data.uniform_().mul_(0.5).div_(min_dist.mean(-1).view(1,1)).log_()
+        
         # Mixture weights should be roughly the stdv of the y values divided by the number of mixtures
         self.log_mixture_weights.data.fill_(train_y.std() / self.num_mixtures).log_()
 
